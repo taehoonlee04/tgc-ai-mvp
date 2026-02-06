@@ -4,9 +4,19 @@ Vector storage and chatbot over The Gospel Coalition articles. Ingests content v
 
 ## Setup
 
+Use **Python 3.11 or 3.12** for ChromaDB compatibility (3.14 is not yet supported).
+
+**If you don't have Python 3.12:** install it, then create the venv:
+
+- **Homebrew (macOS):** Fix permissions if needed (`sudo chown -R $(whoami) /opt/homebrew`), then:
+  ```bash
+  brew install python@3.12
+  /opt/homebrew/opt/python@3.12/bin/python3.12 -m venv .venv
+  ```
+- **pyenv:** `pyenv install 3.12` then `pyenv local 3.12`, then `python -m venv .venv`
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e .
 cp .env.example .env
 # Edit .env with OPENAI_API_KEY
@@ -14,9 +24,11 @@ cp .env.example .env
 
 ## Ingest
 
+Sitemaps are fetched in parallel (no per-request delay). Article pages are still rate-limited (1.5s between requests).
+
 ```bash
 python scripts/run_ingest.py
-# Optional: --limit 10 (cap URLs for testing), --dry-run (parse only, no embed/index)
+# Optional: --limit 10 (cap URLs; also caps sitemap fetches for speed), --sitemap-limit N, --dry-run
 ```
 
 ## Data
