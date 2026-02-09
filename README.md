@@ -63,7 +63,7 @@ uvicorn src.api:app --reload
 ```
 
 - **GET /** — chat UI (ask questions in the browser)
-- **GET /health** — health check
+- **GET /health** — health check (verifies ChromaDB is reachable; returns 503 if not)
 - **GET /api** — API info (JSON)
 - **POST /ask** — body: `{"query": "Your question?", "n_chunks": 5}` (default 5, max 20). Returns `{"answer": "...", "sources": [{ "title", "author", "source_url", "snippet" }]}`
 
@@ -78,6 +78,6 @@ Docs: http://localhost:8000/docs
 ## Tests
 
 ```bash
-pip install pytest
+pip install -e ".[dev]"
 pytest tests/ -v
 ```
