@@ -10,6 +10,8 @@ import chromadb
 from .chunker import Chunk
 
 COLLECTION_NAME = "tgc-articles"
+# ChromaDB has a max add() batch size (~5461); stay under it
+CHROMA_ADD_BATCH_SIZE = 5000
 
 
 def _chunk_id(source_url: str, chunk_index: int) -> str:
@@ -33,33 +35,34 @@ class IndexBuilder:
     ) -> None:
         """
         Add chunks with pre-computed embeddings to the collection.
-
-        Replaces existing collection on each full run (clear then add).
+        Adds in batches to stay under ChromaDB's max batch size.
         """
         collection = self._client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"description": "TGC article chunks"},
         )
 
-        ids = [_chunk_id(c.source_url, c.chunk_index) for c in chunks]
-        documents = [c.text for c in chunks]
-        metadatas = [
-            {
-                "title": c.title,
-                "author": c.author,
-                "section": c.section,
-                "date": c.date,
-                "source_url": c.source_url,
-            }
-            for c in chunks
-        ]
-
-        collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas,
-        )
+        for start in range(0, len(chunks), CHROMA_ADD_BATCH_SIZE):
+            batch = chunks[start : start + CHROMA_ADD_BATCH_SIZE]
+            batch_embs = embeddings[start : start + CHROMA_ADD_BATCH_SIZE]
+            ids = [_chunk_id(c.source_url, c.chunk_index) for c in batch]
+            documents = [c.text for c in batch]
+            metadatas = [
+                {
+                    "title": c.title,
+                    "author": c.author,
+                    "section": c.section,
+                    "date": c.date,
+                    "source_url": c.source_url,
+                }
+                for c in batch
+            ]
+            collection.add(
+                ids=ids,
+                embeddings=batch_embs,
+                documents=documents,
+                metadatas=metadatas,
+            )
 
     def clear_and_add(
         self,

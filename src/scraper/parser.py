@@ -175,9 +175,16 @@ def parse_article(html: str, url: str) -> Article | None:
 _last_fetch_time = 0.0
 
 
-def fetch_and_parse_article(url: str, session: requests.Session | None = None) -> Article | None:
+def fetch_and_parse_article(
+    url: str,
+    session: requests.Session | None = None,
+    *,
+    rate_limit: bool = True,
+) -> Article | None:
     """
-    Fetch URL and parse as article. Applies rate limiting between requests.
+    Fetch URL and parse as article.
+    When rate_limit=True (default), waits REQUEST_DELAY_SEC between requests.
+    Set rate_limit=False when using a bounded worker pool to limit concurrency instead.
     """
     global _last_fetch_time
     sess = session or requests.Session()
@@ -185,11 +192,11 @@ def fetch_and_parse_article(url: str, session: requests.Session | None = None) -
         sess.headers["User-Agent"] = USER_AGENT
         sess._tgc_headers_set = True
 
-    # Rate limit
-    elapsed = time.monotonic() - _last_fetch_time
-    if elapsed < REQUEST_DELAY_SEC:
-        time.sleep(REQUEST_DELAY_SEC - elapsed)
-    _last_fetch_time = time.monotonic()
+    if rate_limit:
+        elapsed = time.monotonic() - _last_fetch_time
+        if elapsed < REQUEST_DELAY_SEC:
+            time.sleep(REQUEST_DELAY_SEC - elapsed)
+        _last_fetch_time = time.monotonic()
 
     try:
         resp = sess.get(url, timeout=TIMEOUT_SEC)

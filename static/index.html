@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGC RAG – Ask</title>
+  <style>
+    :root {
+      --bg: #1a1d23;
+      --surface: #252830;
+      --text: #e6e9ef;
+      --muted: #8b909a;
+      --accent: #7eb3f5;
+      --accent-hover: #9cc5f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .container { max-width: 42rem; margin: 0 auto; }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .sub { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+    form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    input[type="text"] {
+      flex: 1;
+      padding: 0.65rem 0.9rem;
+      border: 1px solid var(--surface);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    input[type="text"]::placeholder { color: var(--muted); }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    button {
+      padding: 0.65rem 1.25rem;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9375rem;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .answer {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+    .sources { margin-top: 1rem; }
+    .sources h3 { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .source {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .source a { color: var(--accent); text-decoration: none; }
+    .source a:hover { text-decoration: underline; }
+    .source .title { font-weight: 600; }
+    .source .author { color: var(--muted); font-size: 0.875rem; }
+    .source .snippet { font-size: 0.875rem; margin-top: 0.35rem; color: var(--muted); }
+    .error { color: #e07c7c; margin-top: 0.5rem; }
+    .loading { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TGC RAG</h1>
+    <p class="sub">Ask questions over The Gospel Coalition articles.</p>
+    <form id="form">
+      <input type="text" id="query" placeholder="e.g. What does the Bible say about faith?" autocomplete="off">
+      <button type="submit" id="btn">Ask</button>
+    </form>
+    <div id="status"></div>
+    <div id="answer" class="answer" style="display: none;"></div>
+    <div id="sources" class="sources" style="display: none;"></div>
+  </div>
+  <script>
+    const form = document.getElementById('form');
+    const queryEl = document.getElementById('query');
+    const btn = document.getElementById('btn');
+    const status = document.getElementById('status');
+    const answerEl = document.getElementById('answer');
+    const sourcesEl = document.getElementById('sources');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = queryEl.value.trim();
+      if (!q) return;
+      btn.disabled = true;
+      status.className = 'loading';
+      status.textContent = 'Searching articles…';
+      answerEl.style.display = 'none';
+      sourcesEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, n_chunks: 5 }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          status.className = 'error';
+          status.textContent = data.detail || res.statusText || 'Request failed';
+          return;
+        }
+        status.textContent = '';
+        answerEl.textContent = data.answer;
+        answerEl.style.display = 'block';
+        if (data.sources && data.sources.length) {
+          sourcesEl.innerHTML = '<h3>Sources</h3>' + data.sources.map(s =>
+            '<div class="source">' +
+              '<span class="title"><a href="' + (s.source_url || '#') + '" target="_blank" rel="noopener">' + escapeHtml(s.title || 'Article') + '</a></span>' +
+              (s.author ? '<div class="author">' + escapeHtml(s.author) + '</div>' : '') +
+              (s.snippet ? '<div class="snippet">' + escapeHtml(s.snippet) + '</div>' : '') +
+            '</div>'
+          ).join('');
+          sourcesEl.style.display = 'block';
+        }
+      } catch (err) {
+        status.className = 'error';
+        status.textContent = err.message || 'Network error';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
